@@ -8,12 +8,12 @@ import android.os.Bundle;
 import android.app.Activity;
 import android.os.Environment;
 import android.util.Log;
-import android.view.Menu;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.View.OnClickListener;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,8 +27,12 @@ import java.io.IOException;
  * <p/>
  * https://github.com/vanevery/Custom-Video-Capture-with-Preview
  */
-public class MainActivity extends Activity {
-    private static final String LOGTAG = "MainActivity";
+
+
+public class MainActivity extends Activity implements OnClickListener, SurfaceHolder.Callback {
+
+    public static final String LOGTAG = "VIDEOCAPTURE";
+
     private MediaRecorder recorder;
     private SurfaceHolder holder;
     private CamcorderProfile camcorderProfile;
@@ -39,131 +43,25 @@ public class MainActivity extends Activity {
     boolean previewRunning = false;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        //setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
-        recorder = new MediaRecorder();
-        initRecorder();
+        camcorderProfile = CamcorderProfile.get(CamcorderProfile.QUALITY_LOW);
+
         setContentView(R.layout.activity_main);
 
         SurfaceView cameraView = (SurfaceView) findViewById(R.id.camera_top);
         holder = cameraView.getHolder();
-        holder.addCallback(new SurfaceHolder.Callback() {
-            @Override
-            public void surfaceCreated(SurfaceHolder holder) {
-                Log.v(LOGTAG, "surfaceCreated");
-
-                if (usecamera) {
-                    camera = Camera.open();
-
-                    try {
-                        camera.setPreviewDisplay(holder);
-                        camera.startPreview();
-                        previewRunning = true;
-                    } catch (IOException e) {
-                        Log.e(LOGTAG, e.getMessage());
-                        e.printStackTrace();
-                    }
-                }
-            }
-
-            @Override
-            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                Log.v(LOGTAG, "surfaceChanged");
-
-                if (!recording && usecamera) {
-                    if (previewRunning) {
-                        camera.stopPreview();
-                    }
-
-                    try {
-                        Camera.Parameters p = camera.getParameters();
-
-                        p.setPreviewSize(camcorderProfile.videoFrameWidth, camcorderProfile.videoFrameHeight);
-                        p.setPreviewFrameRate(camcorderProfile.videoFrameRate);
-
-                        camera.setParameters(p);
-
-                        camera.setPreviewDisplay(holder);
-                        camera.startPreview();
-                        previewRunning = true;
-                    } catch (IOException e) {
-                        Log.e(LOGTAG, e.getMessage());
-                        e.printStackTrace();
-                    }
-
-                    prepareRecorder();
-                }
-            }
-
-            @Override
-            public void surfaceDestroyed(SurfaceHolder holder) {
-                Log.v(LOGTAG, "surfaceDestroyed");
-                if (recording) {
-                    recorder.stop();
-                    recording = false;
-                }
-                recorder.release();
-                if (usecamera) {
-                    previewRunning = false;
-                    //camera.lock();
-                    camera.release();
-                }
-                finish();
-            }
-        });
+        holder.addCallback(this);
         holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
         cameraView.setClickable(true);
-        cameraView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (recording) {
-                    recorder.stop();
-                    if (usecamera) {
-                        try {
-                            camera.reconnect();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    // recorder.release();
-                    recording = false;
-                    Log.v(LOGTAG, "Recording Stopped");
-                    // Let's prepareRecorder so we can record again
-                    prepareRecorder();
-                } else {
-                    recording = true;
-                    recorder.start();
-                    Log.v(LOGTAG, "Recording Started");
-                }
-            }
-        });
-    }
-
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
-        return true;
-    }
-
-
-    private void initRecorder() {
-        recorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
-        recorder.setVideoSource(MediaRecorder.VideoSource.DEFAULT);
-
-        CamcorderProfile cpHigh = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
-        recorder.setProfile(cpHigh);
-        recorder.setOutputFile("/sdcard/videocapture_example.mp4");
-        recorder.setMaxDuration(6000); // 50 seconds
-        recorder.setMaxFileSize(5000000); // Approximately 5 megabytes
+        cameraView.setOnClickListener(this);
     }
 
     private void prepareRecorder() {
@@ -224,5 +122,91 @@ public class MainActivity extends Activity {
         }
     }
 
+    public void onClick(View v) {
+        if (recording) {
+            recorder.stop();
+            if (usecamera) {
+                try {
+                    camera.reconnect();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            // recorder.release();
+            recording = false;
+            Log.v(LOGTAG, "Recording Stopped");
+            // Let's prepareRecorder so we can record again
+            prepareRecorder();
+        } else {
+            recording = true;
+            recorder.start();
+            Log.v(LOGTAG, "Recording Started");
+        }
+    }
 
+    public void surfaceCreated(SurfaceHolder holder) {
+        Log.v(LOGTAG, "surfaceCreated");
+
+        if (usecamera) {
+            camera = Camera.open();
+
+            try {
+                camera.setPreviewDisplay(holder);
+                camera.setDisplayOrientation(90);
+                camera.startPreview();
+                previewRunning = true;
+            }
+            catch (IOException e) {
+                Log.e(LOGTAG,e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        Log.v(LOGTAG, "surfaceChanged");
+
+        if (!recording && usecamera) {
+            if (previewRunning){
+                camera.stopPreview();
+            }
+
+            try {
+                Camera.Parameters p = camera.getParameters();
+
+                p.setPreviewSize(camcorderProfile.videoFrameWidth, camcorderProfile.videoFrameHeight);
+                p.setPreviewFrameRate(camcorderProfile.videoFrameRate);
+
+                camera.setParameters(p);
+
+                camera.setPreviewDisplay(holder);
+                camera.startPreview();
+                previewRunning = true;
+            }
+            catch (IOException e) {
+                Log.e(LOGTAG,e.getMessage());
+                e.printStackTrace();
+            }
+
+            prepareRecorder();
+        }
+    }
+
+
+    public void surfaceDestroyed(SurfaceHolder holder) {
+        Log.v(LOGTAG, "surfaceDestroyed");
+        if (recording) {
+            recorder.stop();
+            recording = false;
+        }
+        recorder.release();
+        if (usecamera) {
+            previewRunning = false;
+            //camera.lock();
+            camera.release();
+        }
+        finish();
+    }
 }

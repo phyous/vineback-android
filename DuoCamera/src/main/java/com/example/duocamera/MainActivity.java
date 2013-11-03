@@ -1,5 +1,6 @@
 package com.example.duocamera;
 
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.hardware.Camera;
 import android.media.CamcorderProfile;
@@ -17,13 +18,14 @@ import android.view.View.OnClickListener;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  * Docs on video recodring
  * <p/>
- * http://stackoverflow.com/questions/1817742/how-can-i-capture-a-video-recording-on-android
+ * http://stackoverflow.com/questions/1817742/how-can-i-capture-a-video-mRecording-on-android
  * <p/>
- * http://developer.android.com/training/camera/cameradirect.html
+ * http://developer.android.com/training/mCamera/cameradirect.html
  * <p/>
  * https://github.com/vanevery/Custom-Video-Capture-with-Preview
  */
@@ -32,66 +34,97 @@ import java.io.IOException;
 public class MainActivity extends Activity implements OnClickListener, SurfaceHolder.Callback {
 
     public static final String TAG = "VIDEOCAPTURE";
+    public static final String EXTRA_VIDEOS = "EXTRA_VIDEOS";
 
-    private MediaRecorder recorder;
-    private SurfaceHolder holder;
-    private CamcorderProfile camcorderProfile;
-    private Camera camera;
+    private MediaRecorder mRecorder;
+    private SurfaceHolder mHolder;
+    private CamcorderProfile mCamcorderProfile;
+    private Camera mCamera;
+    private ArrayList<String> mVideoList;
 
-    boolean recording = false;
-    boolean previewRunning = false;
+    private boolean mRecording = false;
+    private boolean mPreviewRunning = false;
+    private RecordingState mRecordingState = RecordingState.BEGIN;
 
-    @Override
     public void onCreate(Bundle savedInstanceState) {
+        Log.i(TAG, "onCreate");
         super.onCreate(savedInstanceState);
+        mVideoList = new ArrayList<String>(2);
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
-        // Set up recording profile
-        camcorderProfile = CamcorderProfile.get(CamcorderProfile.QUALITY_LOW);
-        camcorderProfile.fileFormat = MediaRecorder.OutputFormat.MPEG_4;
+        // Set up mRecording profile
+        mCamcorderProfile = CamcorderProfile.get(CamcorderProfile.QUALITY_LOW);
+        mCamcorderProfile.fileFormat = MediaRecorder.OutputFormat.MPEG_4;
 
         setContentView(R.layout.activity_main);
 
-        SurfaceView cameraView = (SurfaceView) findViewById(R.id.camera_top);
-        holder = cameraView.getHolder();
-        holder.addCallback(this);
-        holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        prepareRecordingSurface(R.id.camera_a);
 
-        cameraView.setClickable(true);
-        cameraView.setOnClickListener(this);
+        // Set up clicking logic
+        View layout = findViewById(R.id.recordingLayout);
+        layout.setClickable(true);
+        layout.setOnClickListener(this);
+    }
+
+    @Override
+    public void onStop() {
+        Log.i(TAG, "onStop");
+        releaseRecorder();
+        releaseCamera();
+
+        super.onStop();
+    }
+
+    private void prepareRecordingSurface(int viewId) {
+        Log.v(TAG, "prepareRecordingSurface");
+        SurfaceView cameraView = (SurfaceView) findViewById(viewId);
+        mHolder = cameraView.getHolder();
+        mHolder.addCallback(this);
+        mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+    }
+
+    private void clearRecodingSurface() {
+        Log.v(TAG, "clearRecodingSurface");
+        mHolder.getSurface().release();
+        releaseRecorder();
+        releaseCamera();
     }
 
     private void prepareRecorder() {
-        recorder = new MediaRecorder();
-        recorder.setPreviewDisplay(holder.getSurface());
+        Log.v(TAG, "prepareRecorder");
+        mRecorder = new MediaRecorder();
+        mRecorder.setPreviewDisplay(mHolder.getSurface());
 
-        camera.unlock();
-        recorder.setCamera(camera);
+        mCamera.unlock();
+        mRecorder.setCamera(mCamera);
 
-        recorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
-        recorder.setVideoSource(MediaRecorder.VideoSource.DEFAULT);
+        mRecorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
+        mRecorder.setVideoSource(MediaRecorder.VideoSource.DEFAULT);
 
-        recorder.setProfile(camcorderProfile);
+        mRecorder.setProfile(mCamcorderProfile);
 
         try {
             File newFile = File.createTempFile("videocapture", ".mp4", Environment.getExternalStorageDirectory());
             final String filePath = newFile.getAbsolutePath();
+            mVideoList.add(filePath);
             Log.v(TAG, String.format("Created file: %s", filePath));
-            recorder.setOutputFile(filePath);
+            mRecorder.setOutputFile(filePath);
         } catch (IOException e) {
             Log.v(TAG, "Couldn't create file");
             e.printStackTrace();
             finish();
         }
-        //recorder.setMaxDuration(50000); // 50 seconds
-        //recorder.setMaxFileSize(5000000); // Approximately 5 megabytes
+
+        // TODO: Set mRecording length constraints
+        //mRecorder.setMaxDuration(50000); // 50 seconds
+        //mRecorder.setMaxFileSize(5000000); // Approximately 5 megabytes
 
         try {
-            recorder.prepare();
+            mRecorder.prepare();
         } catch (IllegalStateException e) {
             e.printStackTrace();
             finish();
@@ -102,35 +135,72 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
     }
 
     public void onClick(View v) {
-        if (recording) {
-            recorder.stop();
-            try {
-                camera.reconnect();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            recorder.release();
-            recording = false;
-            Log.v(TAG, "Recording Stopped");
-            // Let's prepareRecorder so we can record again
-            prepareRecorder();
-        } else {
-            recording = true;
-            recorder.start();
-            Log.v(TAG, "Recording Started");
+        Log.v(TAG, "onClick");
+        switch (mRecordingState) {
+            case BEGIN:
+                startRecording();
+                mRecordingState = RecordingState.RECORDING_A;
+                break;
+            case RECORDING_A:
+                stopRecording();
+                clearRecodingSurface();
+                prepareRecordingSurface(R.id.camera_b);
+                surfaceCreated(mHolder);
+                surfaceChanged(mHolder, 0, 0, 0);
+                //prepareRecorder();
+                mRecordingState = RecordingState.PENDING_B;
+                break;
+            case PENDING_B:
+                startRecording();
+                mRecordingState = RecordingState.RECORDING_B;
+                break;
+            case RECORDING_B:
+                stopRecording();
+                mRecordingState = RecordingState.PREVIEW;
+                break;
+            case PREVIEW:
+                startVideoPreview();
+                break;
+            default:
+                break;
         }
+    }
+
+    private void startVideoPreview() {
+        Intent intent = new Intent(this, PlaybackActivity.class);
+        intent.putExtra(EXTRA_VIDEOS, mVideoList);
+        startActivity(intent);
+    }
+
+    private void stopRecording() {
+        Log.v(TAG, "stopRecording");
+        mRecorder.stop();
+        try {
+            mCamera.reconnect();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        mRecorder.release();
+        mRecording = false;
+    }
+
+    private void startRecording() {
+        Log.v(TAG, "startRecording");
+        mRecording = true;
+        mRecorder.start();
     }
 
     public void surfaceCreated(SurfaceHolder holder) {
         Log.v(TAG, "surfaceCreated");
 
-        camera = Camera.open();
+        // TODO: handle if mCamera can't be opened
+        mCamera = Camera.open();
 
         try {
-            camera.setPreviewDisplay(holder);
-            camera.setDisplayOrientation(90);
-            camera.startPreview();
-            previewRunning = true;
+            mCamera.setPreviewDisplay(holder);
+            mCamera.setDisplayOrientation(90);
+            mCamera.startPreview();
+            mPreviewRunning = true;
         } catch (IOException e) {
             Log.e(TAG, e.getMessage());
             e.printStackTrace();
@@ -141,22 +211,22 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         Log.v(TAG, "surfaceChanged");
 
-        if (!recording) {
-            if (previewRunning) {
-                camera.stopPreview();
+        if (!mRecording) {
+            if (mPreviewRunning) {
+                mCamera.stopPreview();
             }
 
             try {
-                Camera.Parameters p = camera.getParameters();
+                Camera.Parameters p = mCamera.getParameters();
 
-                p.setPreviewSize(camcorderProfile.videoFrameWidth, camcorderProfile.videoFrameHeight);
-                p.setPreviewFrameRate(camcorderProfile.videoFrameRate);
+                p.setPreviewSize(mCamcorderProfile.videoFrameWidth, mCamcorderProfile.videoFrameHeight);
+                p.setPreviewFrameRate(mCamcorderProfile.videoFrameRate);
 
-                camera.setParameters(p);
+                mCamera.setParameters(p);
 
-                camera.setPreviewDisplay(holder);
-                camera.startPreview();
-                previewRunning = true;
+                mCamera.setPreviewDisplay(holder);
+                mCamera.startPreview();
+                mPreviewRunning = true;
             } catch (IOException e) {
                 Log.e(TAG, e.getMessage());
                 e.printStackTrace();
@@ -169,14 +239,33 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
 
     public void surfaceDestroyed(SurfaceHolder holder) {
         Log.v(TAG, "surfaceDestroyed");
-        if (recording) {
-            recorder.stop();
-            recording = false;
-        }
-        recorder.release();
-        previewRunning = false;
-        //camera.lock();
-        camera.release();
+        releaseRecorder();
+        releaseCamera();
+
         finish();
+    }
+
+    private void releaseRecorder() {
+        Log.v(TAG, "releaseRecorder");
+        if (mRecorder != null) {
+            if (mRecording) {
+                mRecorder.stop();
+                mRecording = false;
+            }
+            mRecorder.setPreviewDisplay(null);
+            mRecorder.release();
+            mPreviewRunning = false;
+        }
+    }
+
+    private void releaseCamera() {
+        Log.v(TAG, "releaseCamera");
+        if (mCamera != null) {
+            mCamera.lock();
+            mCamera.stopPreview();
+            mCamera.setPreviewCallback(null);
+            mCamera.release();
+            mCamera = null;
+        }
     }
 }

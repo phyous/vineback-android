@@ -7,17 +7,18 @@
               android:paddingTop="@dimen/activity_vertical_margin"
               android:paddingBottom="@dimen/activity_vertical_margin"
               android:orientation="vertical"
-              tools:context=".StatusActivity">
+              tools:context=".StatusActivity"
+              android:id="@+id/recordingLayout">
 
     <SurfaceView
-            android:id="@+id/camera_top"
+            android:id="@+id/camera_a"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_weight="1"
             />
 
     <SurfaceView
-            android:id="@+id/camera_bottom"
+            android:id="@+id/camera_b"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_weight="1"

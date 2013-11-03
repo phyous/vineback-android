@@ -31,7 +31,7 @@ import java.io.IOException;
 
 public class MainActivity extends Activity implements OnClickListener, SurfaceHolder.Callback {
 
-    public static final String LOGTAG = "VIDEOCAPTURE";
+    public static final String TAG = "VIDEOCAPTURE";
 
     private MediaRecorder recorder;
     private SurfaceHolder holder;
@@ -39,7 +39,6 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
     private Camera camera;
 
     boolean recording = false;
-    boolean usecamera = true;
     boolean previewRunning = false;
 
     @Override
@@ -51,7 +50,9 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
+        // Set up recording profile
         camcorderProfile = CamcorderProfile.get(CamcorderProfile.QUALITY_LOW);
+        camcorderProfile.fileFormat = MediaRecorder.OutputFormat.MPEG_4;
 
         setContentView(R.layout.activity_main);
 
@@ -68,45 +69,23 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
         recorder = new MediaRecorder();
         recorder.setPreviewDisplay(holder.getSurface());
 
-        if (usecamera) {
-            camera.unlock();
-            recorder.setCamera(camera);
-        }
+        camera.unlock();
+        recorder.setCamera(camera);
 
         recorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
         recorder.setVideoSource(MediaRecorder.VideoSource.DEFAULT);
 
         recorder.setProfile(camcorderProfile);
 
-        // This is all very sloppy
-        if (camcorderProfile.fileFormat == MediaRecorder.OutputFormat.THREE_GPP) {
-            try {
-                File newFile = File.createTempFile("videocapture", ".3gp", Environment.getExternalStorageDirectory());
-                recorder.setOutputFile(newFile.getAbsolutePath());
-            } catch (IOException e) {
-                Log.v(LOGTAG,"Couldn't create file");
-                e.printStackTrace();
-                finish();
-            }
-        } else if (camcorderProfile.fileFormat == MediaRecorder.OutputFormat.MPEG_4) {
-            try {
-                File newFile = File.createTempFile("videocapture", ".mp4", Environment.getExternalStorageDirectory());
-                recorder.setOutputFile(newFile.getAbsolutePath());
-            } catch (IOException e) {
-                Log.v(LOGTAG,"Couldn't create file");
-                e.printStackTrace();
-                finish();
-            }
-        } else {
-            try {
-                File newFile = File.createTempFile("videocapture", ".mp4", Environment.getExternalStorageDirectory());
-                recorder.setOutputFile(newFile.getAbsolutePath());
-            } catch (IOException e) {
-                Log.v(LOGTAG,"Couldn't create file");
-                e.printStackTrace();
-                finish();
-            }
-
+        try {
+            File newFile = File.createTempFile("videocapture", ".mp4", Environment.getExternalStorageDirectory());
+            final String filePath = newFile.getAbsolutePath();
+            Log.v(TAG, String.format("Created file: %s", filePath));
+            recorder.setOutputFile(filePath);
+        } catch (IOException e) {
+            Log.v(TAG, "Couldn't create file");
+            e.printStackTrace();
+            finish();
         }
         //recorder.setMaxDuration(50000); // 50 seconds
         //recorder.setMaxFileSize(5000000); // Approximately 5 megabytes
@@ -125,51 +104,45 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
     public void onClick(View v) {
         if (recording) {
             recorder.stop();
-            if (usecamera) {
-                try {
-                    camera.reconnect();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+            try {
+                camera.reconnect();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-            // recorder.release();
+            recorder.release();
             recording = false;
-            Log.v(LOGTAG, "Recording Stopped");
+            Log.v(TAG, "Recording Stopped");
             // Let's prepareRecorder so we can record again
             prepareRecorder();
         } else {
             recording = true;
             recorder.start();
-            Log.v(LOGTAG, "Recording Started");
+            Log.v(TAG, "Recording Started");
         }
     }
 
     public void surfaceCreated(SurfaceHolder holder) {
-        Log.v(LOGTAG, "surfaceCreated");
+        Log.v(TAG, "surfaceCreated");
 
-        if (usecamera) {
-            camera = Camera.open();
+        camera = Camera.open();
 
-            try {
-                camera.setPreviewDisplay(holder);
-                camera.setDisplayOrientation(90);
-                camera.startPreview();
-                previewRunning = true;
-            }
-            catch (IOException e) {
-                Log.e(LOGTAG,e.getMessage());
-                e.printStackTrace();
-            }
+        try {
+            camera.setPreviewDisplay(holder);
+            camera.setDisplayOrientation(90);
+            camera.startPreview();
+            previewRunning = true;
+        } catch (IOException e) {
+            Log.e(TAG, e.getMessage());
+            e.printStackTrace();
         }
-
     }
 
 
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.v(LOGTAG, "surfaceChanged");
+        Log.v(TAG, "surfaceChanged");
 
-        if (!recording && usecamera) {
-            if (previewRunning){
+        if (!recording) {
+            if (previewRunning) {
                 camera.stopPreview();
             }
 
@@ -184,9 +157,8 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
                 camera.setPreviewDisplay(holder);
                 camera.startPreview();
                 previewRunning = true;
-            }
-            catch (IOException e) {
-                Log.e(LOGTAG,e.getMessage());
+            } catch (IOException e) {
+                Log.e(TAG, e.getMessage());
                 e.printStackTrace();
             }
 
@@ -196,17 +168,15 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
 
 
     public void surfaceDestroyed(SurfaceHolder holder) {
-        Log.v(LOGTAG, "surfaceDestroyed");
+        Log.v(TAG, "surfaceDestroyed");
         if (recording) {
             recorder.stop();
             recording = false;
         }
         recorder.release();
-        if (usecamera) {
-            previewRunning = false;
-            //camera.lock();
-            camera.release();
-        }
+        previewRunning = false;
+        //camera.lock();
+        camera.release();
         finish();
     }
 }

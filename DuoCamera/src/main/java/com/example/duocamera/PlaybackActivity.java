@@ -38,10 +38,17 @@ public class PlaybackActivity extends FragmentActivity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
-        //Intent i = getIntent();
-        //mVideos = i.getStringArrayListExtra(MainActivity.EXTRA_VIDEOS);
+        Intent i = getIntent();
+        mVideos = i.getStringArrayListExtra(MainActivity.EXTRA_VIDEOS);
+//        mVideos = new ArrayList<String>();
+//        mVideos.add("/sdcard/videocapture1226158242.mp4");
+//        mVideos.add("/sdcard/videocapture-1536791312.mp4");
 
         setContentView(R.layout.activity_playback);
+    }
+
+    public ArrayList<String> getVideos(){
+        return mVideos;
     }
 
     public static class VideoFragment extends Fragment implements
@@ -106,9 +113,13 @@ public class PlaybackActivity extends FragmentActivity {
         public void surfaceCreated(SurfaceHolder holder) {
             Log.d(TAG, "surfaceCreated called");
 
+            // TODO: Holy hack batman. Fix this asap.
+            ArrayList<String> videos = ((PlaybackActivity)getActivity()).getVideos();
+            String url = getId() == R.id.video_1_fragment ? videos.get(0) : videos.get(1);
+
             try {
                 mMediaPlayer = new MediaPlayer();
-                mMediaPlayer.setDataSource(this.getActivity(), Uri.fromFile(new File("/sdcard/videocapture-2068449435.mp4")));
+                mMediaPlayer.setDataSource(this.getActivity(), Uri.fromFile(new File(url)));
                 mMediaPlayer.setDisplay(mSurfaceHolder);
                 mMediaPlayer.prepare();
                 mMediaPlayer.setOnBufferingUpdateListener(this);
@@ -116,6 +127,7 @@ public class PlaybackActivity extends FragmentActivity {
                 mMediaPlayer.setOnPreparedListener(this);
                 mMediaPlayer.setOnVideoSizeChangedListener(this);
                 mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+                mMediaPlayer.setLooping(true);
             }
             catch (Exception e) { e.printStackTrace(); }
         }

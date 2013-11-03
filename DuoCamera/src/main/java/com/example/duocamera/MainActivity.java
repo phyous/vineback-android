@@ -194,7 +194,9 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
         Log.v(TAG, "surfaceCreated");
 
         // TODO: handle if mCamera can't be opened
-        mCamera = Camera.open();
+        // TODO: enable choosing of camera (front, back)
+        //mCamera = Camera.open();
+        mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
 
         try {
             mCamera.setPreviewDisplay(holder);

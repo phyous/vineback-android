@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.View.OnClickListener;
+import android.widget.ImageView;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,7 +26,7 @@ import java.util.ArrayList;
  * <p/>
  * http://stackoverflow.com/questions/1817742/how-can-i-capture-a-video-mRecording-on-android
  * <p/>
- * http://developer.android.com/training/mCamera/cameradirect.html
+ * http://developer.android.com/guide/topics/media/camera.html#manifest
  * <p/>
  * https://github.com/vanevery/Custom-Video-Capture-with-Preview
  */
@@ -41,6 +42,7 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
     private CamcorderProfile mCamcorderProfile;
     private Camera mCamera;
     private ArrayList<String> mVideoList;
+    private ImageView mRecordButton;
 
     private boolean mRecording = false;
     private boolean mPreviewRunning = false;
@@ -63,6 +65,7 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
         setContentView(R.layout.activity_main);
 
         prepareRecordingSurface(R.id.camera_a);
+        mRecordButton = (ImageView) findViewById(R.id.record_button_image_view);
 
         // Set up clicking logic
         View layout = findViewById(R.id.recordingLayout);
@@ -70,13 +73,18 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
         layout.setOnClickListener(this);
     }
 
-    @Override
-    public void onStop() {
-        Log.i(TAG, "onStop");
+    @Override public void onPause() {
+        super.onPause();
+        Log.i(TAG, "onPause");
         releaseRecorder();
         releaseCamera();
+    }
 
-        super.onStop();
+    @Override public void onDestroy() {
+        super.onDestroy();
+        Log.i(TAG, "onDestroy");
+        releaseRecorder();
+        releaseCamera();
     }
 
     private void prepareRecordingSurface(int viewId) {
@@ -139,12 +147,14 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
         switch (mRecordingState) {
             case BEGIN:
                 startRecording();
+                mRecordButton.setImageResource(R.drawable.photo_camera_red);
                 mRecordingState = RecordingState.RECORDING_A;
                 break;
             case RECORDING_A:
                 stopRecording();
                 clearRecodingSurface();
                 prepareRecordingSurface(R.id.camera_b);
+                mRecordButton.setImageResource(R.drawable.photo_camera_green);
                 surfaceCreated(mHolder);
                 surfaceChanged(mHolder, 0, 0, 0);
                 //prepareRecorder();
@@ -152,13 +162,16 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
                 break;
             case PENDING_B:
                 startRecording();
+                mRecordButton.setImageResource(R.drawable.photo_camera_red);
                 mRecordingState = RecordingState.RECORDING_B;
                 break;
             case RECORDING_B:
                 stopRecording();
+                mRecordButton.setImageResource(R.drawable.right);
                 mRecordingState = RecordingState.PREVIEW;
                 break;
             case PREVIEW:
+                clearRecodingSurface();
                 startVideoPreview();
                 break;
             default:
@@ -265,6 +278,7 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
         if (mCamera != null) {
             mCamera.lock();
             mCamera.stopPreview();
+            mPreviewRunning = false;
             mCamera.setPreviewCallback(null);
             mCamera.release();
             mCamera = null;

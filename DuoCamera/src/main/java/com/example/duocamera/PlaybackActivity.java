@@ -2,7 +2,6 @@ package com.example.duocamera;
 
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.content.res.AssetFileDescriptor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.*;
@@ -40,9 +39,6 @@ public class PlaybackActivity extends FragmentActivity {
 
         Intent i = getIntent();
         mVideos = i.getStringArrayListExtra(MainActivity.EXTRA_VIDEOS);
-//        mVideos = new ArrayList<String>();
-//        mVideos.add("/sdcard/videocapture1226158242.mp4");
-//        mVideos.add("/sdcard/videocapture-1536791312.mp4");
 
         setContentView(R.layout.activity_playback);
     }

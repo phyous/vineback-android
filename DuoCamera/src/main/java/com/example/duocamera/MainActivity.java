@@ -187,7 +187,12 @@ public class MainActivity extends Activity implements OnClickListener, SurfaceHo
 
     private void stopRecording() {
         Log.v(TAG, "stopRecording");
-        mRecorder.stop();
+        try{
+            mRecorder.stop();
+        }
+        catch (Exception e){
+            Log.e(TAG, e.getMessage());
+        }
         try {
             mCamera.reconnect();
         } catch (IOException e) {
